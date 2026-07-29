@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}My Orders — Furniture Shop{% endblock %}
+{% block content %}
+  <h1 class="page-title">My Orders</h1>
+
+  {% if not orders %}
+    <p class="page-subtitle">No orders yet — add something from the catalogue.</p>
+  {% else %}
+    <div class="order-list">
+      {% for entry in orders %}
+        <article class="order-card">
+          <div class="order-card-header">
+            <span>Order #{{ entry.order['id'] }} — {{ entry.order['ordered_at'] }}</span>
+            <span class="order-total">${{ "%.2f"|format(entry.order['order_total']) }}</span>
+          </div>
+          <ul class="order-items">
+            {% for item in entry.line_items %}
+              <li>{{ item['quantity'] }} × {{ item['product_name'] }} — ${{ "%.2f"|format(item['line_total']) }}</li>
+            {% endfor %}
+          </ul>
+        </article>
+      {% endfor %}
+    </div>
+  {% endif %}
+{% endblock %}

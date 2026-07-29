@@ -406,3 +406,6 @@ FodyWeavers.xsd
 
 # Furniture shop app: generated at runtime, contains login credentials and orders
 data/*.sqlite
+
+# Python (Flask app)
+.venv/

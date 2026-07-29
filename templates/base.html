@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Furniture Shop{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="{{ url_for('home') if current_user.is_authenticated else url_for('login') }}">Furniture Shop</a>
+    {% if current_user.is_authenticated %}
+      <nav class="topnav">
+        <span class="budget-pill">Budget ${{ "%.2f"|format(current_user.budget) }}</span>
+        <a href="{{ url_for('home') }}">Catalogue</a>
+        <a href="{{ url_for('orders') }}">My Orders</a>
+        <span class="user">{{ current_user.id }}</span>
+        <a href="{{ url_for('logout') }}">Log out</a>
+      </nav>
+    {% endif %}
+  </header>
+
+  {% with messages = get_flashed_messages() %}
+    {% if messages %}
+      <div class="flash-stack">
+        {% for message in messages %}
+          <div class="flash">{{ message }}</div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

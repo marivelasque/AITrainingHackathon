@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Log in — Furniture Shop{% endblock %}
+{% block content %}
+  <div class="login-wrap">
+    <form class="login-card" method="post">
+      <h1>Furniture Shop</h1>
+      <p class="subtitle">Log in to browse the catalogue.</p>
+
+      <label for="username">Username</label>
+      <input type="text" id="username" name="username" autocomplete="username" required autofocus>
+
+      <label for="password">Password</label>
+      <input type="password" id="password" name="password" autocomplete="current-password" required>
+
+      <button type="submit">Log in</button>
+
+      <p class="hint">Demo accounts: alice / alice123, bob / bob123, carla / carla123</p>
+    </form>
+  </div>
+{% endblock %}

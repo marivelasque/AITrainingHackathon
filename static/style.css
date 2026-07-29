@@ -1,0 +1,247 @@
+:root {
+  --bg: #faf8f5;
+  --ink: #2e2a26;
+  --muted: #7a7269;
+  --accent: #6b5544;
+  --accent-dark: #52402f;
+  --card: #ffffff;
+  --border: #e8e2d9;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+}
+
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 32px;
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
+}
+
+.brand {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.topnav {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  font-size: 0.95rem;
+}
+
+.topnav a { color: var(--muted); }
+.topnav a:hover { color: var(--accent); }
+
+.user { color: var(--ink); font-weight: 600; }
+
+.budget-pill {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 4px 14px;
+  font-size: 0.85rem;
+  color: var(--accent-dark);
+}
+
+.flash-stack {
+  max-width: 900px;
+  margin: 16px auto 0;
+  padding: 0 32px;
+}
+
+.flash {
+  background: #f2ece3;
+  border: 1px solid var(--border);
+  color: var(--accent-dark);
+  padding: 10px 16px;
+  border-radius: 8px;
+  margin-bottom: 10px;
+}
+
+main {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 32px;
+}
+
+.page-title {
+  font-size: 1.75rem;
+  margin: 0 0 4px;
+}
+
+.page-subtitle {
+  color: var(--muted);
+  margin: 0 0 28px;
+}
+
+/* Catalogue -------------------------------------------------------- */
+
+.product-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 24px;
+}
+
+.product-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.product-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 24px rgba(46, 42, 38, 0.08);
+}
+
+.product-photo {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  display: block;
+  background: var(--border);
+}
+
+.product-body { padding: 16px; }
+
+.product-category {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+
+.product-name {
+  font-size: 1.05rem;
+  margin: 4px 0 8px;
+}
+
+.product-description {
+  font-size: 0.9rem;
+  color: var(--muted);
+  margin: 0 0 16px;
+  min-height: 2.7em;
+}
+
+.product-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.product-price {
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+
+button {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+button:hover { background: var(--accent-dark); }
+
+/* Orders ------------------------------------------------------------ */
+
+.order-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.order-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px 20px;
+}
+
+.order-card-header {
+  display: flex;
+  justify-content: space-between;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.order-total { color: var(--accent-dark); }
+
+.order-items {
+  margin: 0;
+  padding-left: 20px;
+  color: var(--muted);
+}
+
+/* Login -------------------------------------------------------------- */
+
+.login-wrap {
+  display: flex;
+  justify-content: center;
+  padding-top: 8vh;
+}
+
+.login-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 40px;
+  width: 100%;
+  max-width: 360px;
+  display: flex;
+  flex-direction: column;
+}
+
+.login-card h1 {
+  font-size: 1.5rem;
+  margin: 0 0 4px;
+}
+
+.subtitle {
+  color: var(--muted);
+  margin: 0 0 24px;
+}
+
+.login-card label {
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+
+.login-card input {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 16px;
+  font-size: 1rem;
+}
+
+.login-card button {
+  margin-top: 8px;
+}
+
+.hint {
+  margin-top: 20px;
+  font-size: 0.8rem;
+  color: var(--muted);
+  text-align: center;
+}
