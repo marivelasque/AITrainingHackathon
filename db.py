@@ -139,6 +139,17 @@ def place_order(username, product_id, quantity=1):
     return order_id
 
 
+def get_spent(username):
+    """Total already spent by a user across all their orders (0 if none yet)."""
+    conn = get_shop_conn()
+    result = conn.execute(
+        "SELECT COALESCE(SUM(order_total), 0) AS spent FROM orders WHERE username = ?",
+        (username,),
+    ).fetchone()
+    conn.close()
+    return result["spent"]
+
+
 def get_orders(username):
     """Orders placed by a given user, most recent first, each with its line items."""
     conn = get_shop_conn()

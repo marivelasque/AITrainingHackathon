@@ -9,8 +9,9 @@ Day 1 build for a hackathon. A buyer-facing web app for a furniture shop.
 - User logs in.
 - User browses a product catalogue (762 real IKEA furniture products, synced from a shared
   training MongoDB instance: name, price, photo, description).
-- User places orders, saved against their account. Budget is tracked per user but not yet
-  enforced — see Tests, below.
+- User places orders, saved against their account. Remaining budget is tracked and shown
+  live (decreases with each order, turns red if negative) but not yet enforced — nothing
+  blocks an order that pushes it below zero. See Tests, below.
 
 Originally built in R + Shiny; rebuilt in Python partway through Day 1 for a sleeker,
 photo-led catalogue design that Shiny's component model fought against. See
@@ -101,8 +102,9 @@ correct item and total, driven headlessly via Playwright against a live `python 
 instance. Zero console errors, zero broken images. Checked with both the 12 placeholder
 products and, after running `sync_catalogue.py`, the real 762-product MongoDB catalogue
 (all photos load; verified via `naturalWidth` on every `<img>`, not just absence of
-console errors). Budget shows per user but is not yet enforced — an order can currently be
-placed for more than the budget allows.
+console errors). Remaining budget decreases by the exact order total after each purchase
+(checked: $2784.00 → $2706.00 after a $78.00 order). Not yet enforced — an order can
+currently be placed for more than the budget allows.
 
 ## Reproducibility note
 

@@ -57,6 +57,12 @@ a:hover { text-decoration: underline; }
   color: var(--accent-dark);
 }
 
+.budget-pill.over {
+  background: #fbeaea;
+  border-color: #e3b8b8;
+  color: #a33;
+}
+
 .flash-stack {
   max-width: 900px;
   margin: 16px auto 0;

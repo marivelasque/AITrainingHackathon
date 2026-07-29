@@ -144,15 +144,21 @@ instead, and it would become a fifth entity.
   - There's no free-text description field in the source data, so `description` is
     synthesised from the fields that do exist (category, colour, dimensions) rather than
     invented.
-  - Re-running the script wipes and reloads `products` from scratch — fine today since
-    there are no real orders yet, but a future re-sync would orphan any `order_items` that
-    reference a product it just deleted. Not a problem to solve until there's real order
-    history to protect.
+  - Re-running the script wipes and reloads `products` from scratch, which orphans any
+    existing `order_items` that reference a deleted product (its `JOIN` in `get_orders()`
+    then silently drops that line from history). Not yet fixed — re-sync sparingly once
+    real orders exist.
+- **Remaining-budget display**: a Flask `context_processor` computes `spent` (sum of a
+  user's past `order_total`s) on every request and exposes `remaining_budget` to every
+  template, so the nav pill decreases immediately after each order without each route
+  needing to compute it. Turns red if it goes negative.
 
 ## Still ahead
 
-- **Budget enforcement** — a `can_afford()` equivalent. Budget is stored per user and shown
-  in the nav bar, but nothing currently blocks an order that exceeds it.
+- **Budget enforcement** — remaining budget is now tracked and displayed (see Built so
+  far), and turns red once negative, but nothing yet blocks the order that pushes it there.
+  Needs a `can_afford()` equivalent (see the R version's, still in git history) evaluated
+  before `place_order()` commits.
 - **Multi-select cart** — a session cart, a review/checkout page, and a `place_cart_order()`
   that writes one `orders` row plus several `order_items` rows in a single transaction.
   Today's "Add to order" is instant and single-item; there's no cart to review first.

@@ -27,6 +27,14 @@ def load_user(username):
     return auth.load_user(username)
 
 
+@app.context_processor
+def inject_budget_status():
+    if not current_user.is_authenticated:
+        return {}
+    spent = db.get_spent(current_user.id)
+    return {"spent": spent, "remaining_budget": current_user.budget - spent}
+
+
 @app.route("/")
 @login_required
 def home():
