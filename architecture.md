@@ -22,35 +22,40 @@ Python equivalent described below, once that's built.
 - **Flask** — Python micro web framework: routes, request handling, sessions.
 - **Jinja2** (bundled with Flask) — server-rendered HTML templates.
 - **SQLite**, via Python's built-in `sqlite3` — file-based database, no server to install
-  or run.
+  or run. Now used only as a local image cache and for the legacy budget-logic tests (see
+  below) — it's no longer the source of truth for catalogue data, orders, or balance.
+- **requests** — HTTP client `furniture_api.py` uses to call the event's real
+  furniture-shop REST API: catalogue search, balance, place order, order history. This is
+  now the source of truth for everything except product photos.
 - **Flask-Login** + `werkzeug.security` (bundled with Flask) — session-based login and
-  password hashing. The shop-data/credentials database split carries over from the
-  original design.
+  password hashing. Local demo accounts only; unrelated to the real API account (see
+  Built so far, below).
 - Hand-written CSS (`static/style.css`) for the card grid and overall look — no CSS/JS
   framework.
-- **pymongo** + **python-dotenv** — used only by `sync_catalogue.py`, a one-off/on-demand
-  script that loads the shared training MongoDB catalogue into SQLite. The running Flask
-  app never talks to MongoDB directly; it only ever reads the local SQLite `products`
-  table, so the app doesn't depend on that external database being reachable.
+- **pymongo** + **python-dotenv** — `sync_catalogue.py` uses `pymongo` to decode product
+  photos from the shared training MongoDB instance into `static/images/`, keyed by
+  `item_id`; the running app matches these onto the live API's products by that same id.
+  `python-dotenv` loads `.env` for both that script and `furniture_api.py`.
 
 ## File structure
 
 ```text
 app.py                       # entry point — Flask app, routes
-db.py                        # SQLite access: products, orders, order_items
+furniture_api.py             # client for the event's real REST API — catalogue, balance, orders
+db.py                        # local SQLite: image-path lookup + legacy budget-logic tests
 auth.py                      # Flask-Login setup, password hashing, demo user accounts
-sync_catalogue.py            # one-off: load the MongoDB catalogue into SQLite, replacing placeholders
-.env                          # MONGODB_URI (gitignored; see .env.example for the shape)
+sync_catalogue.py            # decodes product photos from the shared MongoDB catalogue into static/images/
+.env                          # FURNITURE_API_BASE_URL/USER_ID/KEY, MONGODB_URI (gitignored; see .env.example)
 templates/
 ├── base.html                 # shared layout: nav, flash messages
 ├── login.html
-├── catalogue.html            # home page — product card grid
-└── orders.html               # "My Orders" page
+├── catalogue.html            # home page — live product grid, photos matched in by item_id
+└── orders.html               # "My Orders" page — from furniture_api.get_orders()
 static/
 ├── style.css                 # card grid, hover states, colour palette
 └── images/                   # product photos decoded by sync_catalogue.py (gitignored)
 data/
-├── flask_shop.sqlite         # products + orders (gitignored, regenerated on first run)
+├── flask_shop.sqlite         # image-path cache + legacy products/orders tables (gitignored)
 └── flask_credentials.sqlite  # login credentials (gitignored, regenerated on first run)
 ```
 
@@ -108,6 +113,12 @@ Four things the app needs to remember, in plain English:
   different Product — this is what makes multi-product orders possible once they're built
   (see Still ahead, below; today each order only ever has one OrderItem).
 
+**This model describes `db.py`'s local tables, which the running app no longer persists
+to for orders or catalogue data (see Built so far, below) — real Customers/Orders/OrderItems
+now live in the event's API, not in this database.** The model still stands as the shape
+`tests/test_budget.py` exercises, and as the reference for the local image-path cache
+(`Product.itemId`/`imagePath`), but it isn't the live app's runtime state any more.
+
 How they connect:
 
 - A **Customer places** any number of **Orders** over time — that's their order history.
@@ -127,51 +138,52 @@ instead, and it would become a fifth entity.
 ## Built so far
 
 - Login: Flask-Login + `werkzeug` password hashing, three demo users seeded on first run.
-- Catalogue: card grid, one photo/name/description/price per product, grouped into
-  sections by category (17 categories across the real catalogue) — built with
-  `itertools.groupby` in `app.py` over `get_products()`'s already-`category`-sorted rows,
-  not a template-level grouping filter.
-- **Category filter tabs**: `GET /?category=<name>` (via `db.get_products(category=...)`)
-  filters to one category server-side; the "All" tab is just `GET /` with no param. The
-  tab bar itself always lists every category (`db.get_categories()`), independent of
-  which one is currently selected, so switching categories is a normal link, not JS.
-- "Add to order": one click places a one-item order immediately, saved as one `orders` row
-  plus one `order_items` row.
-- "My Orders": a logged-in user's own past orders, with items and totals, read straight
-  from the database.
-- Two-database separation (shop data vs. credentials), matching the original design.
-- **Real catalogue**: `sync_catalogue.py` connects to the shared training MongoDB instance
-  (`MONGODB_URI` in `.env`, read-only, never written to), pulls its `catalog` collection —
-  762 real IKEA products — and replaces whatever's in the local `products` table. Two things
-  the source data needed massaging for:
-  - `image_url` is a misleading field name — it's actually the image's raw bytes,
-    base64-encoded, not a URL. The sync script decodes each one to a real file under
-    `static/images/` and stores that file's path, rather than stuffing ~47MB of base64 text
-    into SQLite (which would bloat the database and slow down every catalogue query).
-  - There's no free-text description field in the source data, so `description` is
-    synthesised from the fields that do exist (category, colour, dimensions) rather than
-    invented.
-  - Re-running the script wipes and reloads `products` from scratch, which orphans any
-    existing `order_items` that reference a deleted product (its `JOIN` in `get_orders()`
-    then silently drops that line from history). Not yet fixed — re-sync sparingly once
-    real orders exist.
-- **Remaining-budget display**: a Flask `context_processor` computes `spent` (sum of a
-  user's past `order_total`s) on every request and exposes `remaining_budget` to every
-  template, so the nav pill decreases immediately after each order without each route
-  needing to compute it. Turns red if it goes negative (kept as a defensive display state —
-  see budget enforcement, below, for why it shouldn't normally be reachable now).
-- **Budget enforcement**: `can_afford(budget, spent, order_total)` in `db.py` — a direct
-  port of the R version's function, same signature and boundary rule
-  (`spent + order_total <= budget`, with a small epsilon for float rounding).
-  `place_order()` now takes `budget`, checks affordability before writing anything, and
-  returns `{"success": bool, "message": str}` instead of a bare order id, so `/buy` can
-  flash the exact reason back to the buyer (e.g. "That order is $2672.00 but you only have
-  $278.00 left in your budget."). A blocked order writes nothing to `orders`/`order_items`.
-- **Tests**: `tests/test_budget.py`, `pytest`. Same cases as the original R `testthat`
-  suite: `can_afford` at the exact boundary and just over it; `place_order` succeeds and
-  updates spend; over-budget is refused and not recorded; unknown product is rejected.
-  Skipped the R suite's invalid-quantity case — there's no quantity input in this UI yet
-  (`buy()` always passes `quantity=1`), so it's not a reachable path to test.
+  These are local-only accounts — they gate access to the app, but every one of them acts
+  as the *same* real account against the event API (see below), because that API is keyed
+  to one `FURNITURE_API_KEY`, not to whichever demo user is logged in.
+- **Live catalogue**: `furniture_api.get_catalogue()` paginates
+  `GET /catalogue/search-index` (name, category, price — fast, no images; the plain
+  `/catalogue` endpoint embeds every image as base64 and is much slower, per the event's
+  own API guide) and returns all 762 real IKEA products. `app.py` groups them into
+  category sections with `itertools.groupby`, same as before, just over live API data
+  instead of a local table.
+- **Category filter tabs**: `GET /?category=<name>` now filters the live API result in
+  Python rather than in a `WHERE` clause, since the API itself only filters by exact
+  category match, not the counts the tab bar needs. The "All" tab is `GET /` with no
+  param; the tab bar always lists every category with its count, independent of which one
+  is currently selected.
+- **Product photos**: the search-index endpoint never returns images, so they're sourced
+  separately — `sync_catalogue.py` connects to the shared, read-only training MongoDB
+  instance (`MONGODB_URI` in `.env`), decodes each product's `image_url` field (misleadingly
+  named — it's the image's raw base64 bytes, not a URL) into a file under
+  `static/images/{item_id}.{ext}`, and `db.get_image_paths()` maps `item_id → path` for
+  `app.py` to attach onto each live API product by that same id. That shared Mongo cluster
+  currently has no primary (secondaries only) — `sync_catalogue.py` connects with
+  `read_preference=SECONDARY_PREFERRED`, or the default read preference fails outright even
+  though the data's reachable. Re-run `sync_catalogue.py` any time to refresh photos; it no
+  longer touches product name/price/category (those are always live from the API), so a
+  stale image cache can't disagree with the live catalogue on anything but the photo.
+- "Add to order": one click calls `furniture_api.place_order()`, which really debits the
+  event's balance for this API account and returns a message straight from the API
+  (success, `402` insufficient balance, `404` unknown item, `429` rate-limited).
+- "My Orders": `furniture_api.get_orders()` — the real account's own order history from the
+  API, most recent first.
+- **Remaining-budget display**: a Flask `context_processor` calls
+  `furniture_api.get_balance()` on every request and exposes `remaining_budget` to every
+  template. There's no local `spent` calculation any more — the balance already reflects
+  every order placed through the API, including ones made outside this app.
+- **Budget enforcement**: happens API-side now, not in this app. A `POST /orders` that would
+  exceed the balance gets a `402`, which `furniture_api.place_order()` turns into
+  `{"success": False, "message": "Insufficient balance: ..."}` for `/buy` to flash back.
+  `db.can_afford()`/`db.place_order()` still exist as a local, pure-function model of the
+  same rule (`spent + order_total <= budget`), but only `tests/test_budget.py` exercises
+  them now — the running app doesn't call them.
+- **Tests**: `tests/test_budget.py`, `pytest`, unchanged — still a unit test of the budget
+  rule in isolation (`db.can_afford`/`db.place_order` against a local SQLite table), not an
+  end-to-end test of the real API's own enforcement. Same cases as the original R
+  `testthat` suite: `can_afford` at the exact boundary and just over it; `place_order`
+  succeeds and updates spend; over-budget is refused and not recorded; unknown product is
+  rejected.
 
 ## Public access (ngrok)
 

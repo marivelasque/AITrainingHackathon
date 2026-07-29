@@ -14,6 +14,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 from pymongo import MongoClient
+from pymongo.read_preferences import ReadPreference
 
 import db
 
@@ -62,7 +63,14 @@ def main():
         raise SystemExit("Set MONGODB_URI in .env before running this script (see .env.example).")
 
     print("Connecting to MongoDB...")
-    client = MongoClient(mongo_uri, serverSelectionTimeoutMS=8000)
+    # This shared cluster currently has no primary (secondaries only) — read_preference
+    # must say so explicitly, or the default (primary) read fails with
+    # ServerSelectionTimeoutError even though the secondaries are reachable.
+    client = MongoClient(
+        mongo_uri,
+        read_preference=ReadPreference.SECONDARY_PREFERRED,
+        serverSelectionTimeoutMS=8000,
+    )
     catalog = client.get_default_database()["catalog"]
     documents = list(catalog.find())
     print(f"Fetched {len(documents)} products from the `catalog` collection.")

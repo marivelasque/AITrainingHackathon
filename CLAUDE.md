@@ -6,12 +6,25 @@ Day 1 build for a hackathon. A buyer-facing web app for a furniture shop.
 
 **Core flow:**
 
-- User logs in.
-- User browses a product catalogue (762 real IKEA furniture products, synced from a shared
-  training MongoDB instance: name, price, photo, description).
-- User places orders, saved against their account. Remaining budget is tracked and shown
-  live (decreases with each order), and enforced: an order that would exceed it is blocked
-  with a clear message and never recorded. See Tests, below.
+- User logs in (local demo account — see Demo accounts, below).
+- User browses a product catalogue (762 real IKEA furniture products) pulled live from the
+  event's own furniture-shop REST API: category, name, price per product. No photos on this
+  page — the fast `search-index` endpoint this uses doesn't return them (see `furniture_api.py`).
+- User places orders. These are real orders against the event's shared training API: it
+  really debits a real per-account balance. Remaining budget is read live from that same
+  API and shown in the nav; an order that would exceed it is blocked by the API itself
+  (`402`) with a clear message and never recorded locally. See Tests, below.
+
+**Important:** every demo login shares the *same* real balance and order history, because
+the app's real budget/orders/catalogue all go through one API key (`FURNITURE_API_KEY` in
+`.env`). The local per-demo-user `budget` column in `auth.py` is vestigial — it's no longer
+read anywhere; only which account you log in as changes, not whose money you spend.
+
+## Documentation habit
+
+Whenever a configuration change lands (new data source, new external service, new env var,
+swapping which system is authoritative for something), update `README.md`, `architecture.md`,
+and `requirements.md` in the same pass — don't leave them describing the old wiring.
 
 Originally built in R + Shiny; rebuilt in Python partway through Day 1 for a sleeker,
 photo-led catalogue design that Shiny's component model fought against. See
@@ -28,33 +41,43 @@ needed.
   Credentials live in their own SQLite file, separate from shop data.
 - Hand-written CSS (`static/style.css`) for the card-grid catalogue look — no CSS/JS
   framework.
-- **pymongo** + **python-dotenv** — used only by `sync_catalogue.py` (see below), not by
-  the running app itself.
+- **requests** — HTTP client `furniture_api.py` uses to call the event's real
+  furniture-shop REST API: live catalogue search, balance, orders.
+- **pymongo** + **python-dotenv** — `pymongo` is only used by `sync_catalogue.py`, a legacy/
+  optional script (see Folder structure) that is no longer part of the running app's
+  catalogue path. `python-dotenv` loads `.env` for both that script and `furniture_api.py`.
 
 ## Folder structure
 
 ```text
 app.py                       # entry point — run this to start the app
-db.py                        # shop database: products, orders, order_items (no Flask dependency)
+furniture_api.py             # client for the event's real REST API — catalogue, balance, orders
+db.py                        # local shop database (no Flask dependency) — see note below
 auth.py                      # Flask-Login setup, password hashing, demo user accounts
-sync_catalogue.py            # one-off: load the real MongoDB catalogue into SQLite
-.env                          # MONGODB_URI (gitignored — see .env.example)
+sync_catalogue.py            # legacy/optional: load the shared MongoDB catalogue into SQLite
+.env                          # FURNITURE_API_BASE_URL/USER_ID/KEY, MONGODB_URI (gitignored — see .env.example)
 templates/
 ├── base.html                 # shared layout: nav, flash messages
 ├── login.html
-├── catalogue.html            # home page — product card grid
-└── orders.html               # "My Orders" page
+├── catalogue.html            # home page — live product grid from furniture_api.get_catalogue()
+└── orders.html               # "My Orders" page — from furniture_api.get_orders()
 static/
 ├── style.css                 # card grid, hover states, colour palette
-└── images/                   # product photos from sync_catalogue.py (gitignored)
+└── images/                   # unused by the running app now (sync_catalogue.py's legacy output)
 data/
-├── flask_shop.sqlite         # products + orders (gitignored, regenerated on first run)
+├── flask_shop.sqlite         # legacy local catalogue/orders — only touched by tests/test_budget.py now
 └── flask_credentials.sqlite  # login credentials (gitignored, regenerated on first run)
 tests/
-└── test_budget.py            # can_afford() / place_order() — pytest
+└── test_budget.py            # can_afford() / place_order() — pytest, against db.py's local logic
 requirements.md               # what the app needs to do
 architecture.md               # how it's built, including the Customer/Product/Order/OrderItem data model
 ```
+
+**Note on `db.py`/`sync_catalogue.py`:** the running app no longer uses these for the
+catalogue, budget, or orders — that's all live through `furniture_api.py` now (see Core
+flow, above). They're kept because `tests/test_budget.py` still exercises `db.py`'s local
+`can_afford()`/`place_order()` as a pure-function unit test of the budget rule itself,
+independent of the real API being reachable.
 
 ## Running it
 
@@ -63,29 +86,30 @@ architecture.md               # how it's built, including the Customer/Product/O
 python app.py
 ```
 
-Open `http://127.0.0.1:5000`. First run creates `data/flask_shop.sqlite` (seeded with 12
-placeholder furniture products, until the catalogue is synced — see below) and
-`data/flask_credentials.sqlite` (demo accounts below). Both files are gitignored — delete
-them to reset to a clean demo state.
+Open `http://127.0.0.1:5000`. First run creates `data/flask_credentials.sqlite` (demo
+accounts below) and a `data/flask_shop.sqlite` that the running app no longer reads from
+(see the `db.py` note above) — both gitignored.
 
-**To load the real catalogue** (762 IKEA products from the shared training MongoDB
-instance, replacing the placeholders): set `MONGODB_URI` in `.env` (copy `.env.example`),
-then:
+**Required for the catalogue/balance/orders to actually work:** set
+`FURNITURE_API_BASE_URL`, `FURNITURE_API_USER_ID`, and `FURNITURE_API_KEY` in `.env` (copy
+`.env.example`) — the real event API credentials. Without these, `furniture_api.py`'s
+functions return empty/`None` and the app degrades gracefully (empty catalogue, no
+balance shown) rather than crashing.
 
-```powershell
-python sync_catalogue.py
-```
+`MONGODB_URI` + `python sync_catalogue.py` still work (legacy path: loads the shared
+training MongoDB catalogue into the local, now-unused `products` table) but nothing in the
+running app reads that table for the catalogue anymore — the home page is always live from
+the real API's `search-index` endpoint.
 
-Safe to re-run any time to refresh the catalogue. Read-only against MongoDB — it only ever
-writes to the local SQLite database.
+**Demo accounts** (`auth.py`, `DEMO_USERS`) — replace before using with anything real. The
+`budget` column is vestigial (see Core flow, above) — every account shares the one real
+balance behind `FURNITURE_API_KEY`:
 
-**Demo accounts** (`auth.py`, `DEMO_USERS`) — replace before using with anything real:
-
-| user  | password | budget |
-| --- | --- | --- |
-| alice | alice123 | $5000  |
-| bob   | bob123   | $3000  |
-| carla | carla123 | $8000  |
+| user  | password |
+| --- | --- |
+| alice | alice123 |
+| bob   | bob123   |
+| carla | carla123 |
 
 ## Tests
 
@@ -112,6 +136,17 @@ Enforcement checked end-to-end: bought a $2722.00 item against bob's $3000 budge
 $278.00), then attempted a $2672.00 item — blocked with "That order is $2672.00 but you
 only have $278.00 left in your budget," remaining budget unchanged, nothing written to
 `orders`/`order_items`.
+
+## Verified working (2026-07-29, catalogue → live API)
+
+Home page swapped from the local placeholder/synced SQLite catalogue to
+`furniture_api.get_catalogue()` (paginated `GET /catalogue/search-index`, not plain
+`/catalogue` — the guide's own warning about the latter embedding base64 images and being
+much slower). Logged in as bob against a live `python app.py`: home page loaded all 762
+real products across 17 categories (category, name, price per card, no photos), bought a
+$78.00 bar stool, and it showed up correctly on "My Orders" with the real API confirming
+the order. `db.py`/`tests/test_budget.py` untouched — they exercise the local budget
+function in isolation and don't depend on the catalogue source.
 
 ## Reproducibility note
 

@@ -22,19 +22,16 @@
       <div class="product-grid">
         {% for product in group.products %}
           <article class="product-card">
-            {% set photo = product['image_path'] %}
-            <img class="product-photo"
-                 src="{{ photo if photo.startswith('http') else url_for('static', filename=photo) }}"
-                 alt="{{ product['name'] }}">
+            {% if product['image_path'] %}
+              <img class="product-photo" src="{{ url_for('static', filename=product['image_path']) }}"
+                   alt="{{ product['product_name'] }}">
+            {% endif %}
             <div class="product-body">
-              <h3 class="product-name">{{ product['name'] }}</h3>
-              <p class="product-description">{{ product['description'] }}</p>
-              {% if product['product_url'] %}
-                <a class="product-link" href="{{ product['product_url'] }}" target="_blank" rel="noopener">View original ↗</a>
-              {% endif %}
+              <span class="product-category">{{ product['category'] }}</span>
+              <h3 class="product-name">{{ product['product_name'] }}</h3>
               <div class="product-footer">
                 <span class="product-price">${{ "%.2f"|format(product['price']) }}</span>
-                <form method="post" action="{{ url_for('buy', product_id=product['id']) }}">
+                <form method="post" action="{{ url_for('buy', item_id=product['item_id']) }}">
                   <button type="submit">Add to order</button>
                 </form>
               </div>

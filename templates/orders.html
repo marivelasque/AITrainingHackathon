@@ -7,15 +7,15 @@
     <p class="page-subtitle">No orders yet — add something from the catalogue.</p>
   {% else %}
     <div class="order-list">
-      {% for entry in orders %}
+      {% for order in orders %}
         <article class="order-card">
           <div class="order-card-header">
-            <span>Order #{{ entry.order['id'] }} — {{ entry.order['ordered_at'] }}</span>
-            <span class="order-total">${{ "%.2f"|format(entry.order['order_total']) }}</span>
+            <span>Order #{{ order['order_id'][:8] }} — {{ order['timestamp'] }}</span>
+            <span class="order-total">${{ "%.2f"|format(order['total_amount']) }}</span>
           </div>
           <ul class="order-items">
-            {% for item in entry.line_items %}
-              <li>{{ item['quantity'] }} × {{ item['product_name'] }} — ${{ "%.2f"|format(item['line_total']) }}</li>
+            {% for item in order['items'] %}
+              <li>{{ item['quantity'] }} × {{ item['product_name'] }} — ${{ "%.2f"|format(item['unit_price'] * item['quantity']) }}</li>
             {% endfor %}
           </ul>
         </article>

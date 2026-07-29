@@ -11,9 +11,13 @@
     <a class="brand" href="{{ url_for('home') if current_user.is_authenticated else url_for('login') }}">Furniture Shop</a>
     {% if current_user.is_authenticated %}
       <nav class="topnav">
-        <span class="budget-pill{{ ' over' if remaining_budget < 0 else '' }}">
-          ${{ "%.2f"|format(remaining_budget) }} remaining of ${{ "%.2f"|format(current_user.budget) }}
-        </span>
+        {% if remaining_budget is none %}
+          <span class="budget-pill over">Balance unavailable</span>
+        {% else %}
+          <span class="budget-pill{{ ' over' if remaining_budget < 0 else '' }}">
+            ${{ "%.2f"|format(remaining_budget) }} remaining
+          </span>
+        {% endif %}
         <a href="{{ url_for('home') }}">Catalogue</a>
         <a href="{{ url_for('orders') }}">My Orders</a>
         <span class="user">{{ current_user.id }}</span>

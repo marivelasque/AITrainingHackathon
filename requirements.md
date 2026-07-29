@@ -53,8 +53,10 @@ live in `auth.py` (`DEMO_USERS`) — replace before using this with anything rea
 
 ### Product photography
 - One photo per product, consistent size and aspect ratio across all cards.
-- Resolved: real photos come from the shared MongoDB furniture catalogue (762 IKEA
-  products), synced into our own database — see `architecture.md`.
+- Resolved: name/category/price for the catalogue grid are now live from the event's own
+  furniture-shop REST API (it doesn't return images through the endpoint used for
+  browsing); photos are still sourced from the shared MongoDB furniture catalogue (762 IKEA
+  products) and matched onto each live product by `item_id` — see `architecture.md`.
 
 ### Platform
 - Moves to Python (Flask + Jinja2 templates), replacing the original build's R + Shiny

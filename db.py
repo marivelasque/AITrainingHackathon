@@ -114,6 +114,21 @@ def get_products(category=None):
     return rows
 
 
+def get_image_paths():
+    """item_id -> static image path, from the local sync_catalogue.py cache.
+
+    The live catalogue (name/category/price) comes from furniture_api.get_catalogue()
+    now, but that API's search-index endpoint never returns images (see furniture_api.py),
+    so photos are served from this local cache instead, keyed by the same item_id.
+    """
+    conn = get_shop_conn()
+    rows = conn.execute(
+        "SELECT item_id, image_path FROM products WHERE item_id IS NOT NULL"
+    ).fetchall()
+    conn.close()
+    return {row["item_id"]: row["image_path"] for row in rows}
+
+
 def get_categories():
     """Distinct categories with product counts, for the catalogue filter nav."""
     conn = get_shop_conn()

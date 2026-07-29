@@ -13,6 +13,7 @@ from flask_login import (
 
 import auth
 import db
+import furniture_api
 
 app = Flask(__name__)
 app.secret_key = "hackathon-demo-secret-key"  # replace before using this with anything real
@@ -33,8 +34,7 @@ def load_user(username):
 def inject_budget_status():
     if not current_user.is_authenticated:
         return {}
-    spent = db.get_spent(current_user.id)
-    return {"spent": spent, "remaining_budget": current_user.budget - spent}
+    return {"remaining_budget": furniture_api.get_balance()}
 
 
 @app.route("/health")
@@ -46,17 +46,24 @@ def health():
 @login_required
 def home():
     selected_category = request.args.get("category") or None
-    products = db.get_products(category=selected_category)  # already ordered by category, then name
+    all_products = sorted(furniture_api.get_catalogue(), key=lambda p: (p["category"], p["product_name"]))
+    image_paths = db.get_image_paths()
+    for product in all_products:
+        product["image_path"] = image_paths.get(product["item_id"])
+    products = [p for p in all_products if not selected_category or p["category"] == selected_category]
     grouped = [
         {"category": category, "products": list(items)}
         for category, items in itertools.groupby(products, key=lambda p: p["category"])
     ]
-    categories = db.get_categories()
+    categories = [
+        {"category": category, "n": len(list(items))}
+        for category, items in itertools.groupby(all_products, key=lambda p: p["category"])
+    ]
     return render_template(
         "catalogue.html",
         grouped=grouped,
         total=len(products),
-        total_all=sum(c["n"] for c in categories),
+        total_all=len(all_products),
         categories=categories,
         selected_category=selected_category,
     )
@@ -81,10 +88,10 @@ def logout():
     return redirect(url_for("login"))
 
 
-@app.route("/buy/<int:product_id>", methods=["POST"])
+@app.route("/buy/<item_id>", methods=["POST"])
 @login_required
-def buy(product_id):
-    result = db.place_order(current_user.id, product_id, current_user.budget, quantity=1)
+def buy(item_id):
+    result = furniture_api.place_order(item_id, quantity=1)
     flash(result["message"])
     return redirect(url_for("home"))
 
@@ -92,7 +99,7 @@ def buy(product_id):
 @app.route("/orders")
 @login_required
 def orders():
-    my_orders = db.get_orders(current_user.id)
+    my_orders = furniture_api.get_orders()
     return render_template("orders.html", orders=my_orders)
 
 
