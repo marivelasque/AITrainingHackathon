@@ -111,6 +111,23 @@ def get_catalogue():
     return products
 
 
+def get_product_detail(item_id):
+    """Full detail for one specific product — GET /catalogue/{item_id}. No auth needed
+    (catalogue endpoints are public). Includes the product's image as raw base64 in
+    `image_url` — callers passing this to an LLM must strip that field first.
+
+    Returns the full detail dict, or None if the item doesn't exist or the request fails.
+    """
+    if not BASE_URL:
+        return None
+    try:
+        response = requests.get(f"{BASE_URL}/catalogue/{item_id}", timeout=10)
+        response.raise_for_status()
+        return response.json()
+    except (requests.RequestException, ValueError):
+        return None
+
+
 def get_orders():
     """This account's real order history from the API, most recent first."""
     if not (BASE_URL and USER_ID and API_KEY):
