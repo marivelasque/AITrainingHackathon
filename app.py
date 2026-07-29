@@ -2,7 +2,7 @@
 
 import itertools
 
-from flask import Flask, flash, redirect, render_template, request, url_for
+from flask import Flask, flash, redirect, render_template, request, session, url_for
 from flask_login import (
     LoginManager,
     current_user,
@@ -11,6 +11,7 @@ from flask_login import (
     logout_user,
 )
 
+import agent
 import auth
 import db
 import furniture_api
@@ -84,6 +85,7 @@ def login():
 @app.route("/logout")
 @login_required
 def logout():
+    session.pop("chat_history", None)
     logout_user()
     return redirect(url_for("login"))
 
@@ -101,6 +103,17 @@ def buy(item_id):
 def orders():
     my_orders = furniture_api.get_orders()
     return render_template("orders.html", orders=my_orders)
+
+
+@app.route("/ask", methods=["GET", "POST"])
+@login_required
+def ask():
+    if request.method == "POST":
+        user_message = request.form["message"]
+        history = session.get("chat_history", [])
+        session["chat_history"] = agent.run_agent_turn(history, user_message)
+        return redirect(url_for("ask"))
+    return render_template("ask.html", history=session.get("chat_history", []))
 
 
 if __name__ == "__main__":
