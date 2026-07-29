@@ -10,7 +10,7 @@ across multiple products, and stay within a set budget.
 ## User roles
 
 Each buyer logs in with their own account and has an individual budget ceiling. Demo accounts
-live in `R/auth.R` (`DEMO_CREDENTIALS`) — replace before using this with anything real.
+live in `auth.py` (`DEMO_USERS`) — replace before using this with anything real.
 
 ## Functional requirements
 
