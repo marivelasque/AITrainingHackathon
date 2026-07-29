@@ -127,7 +127,14 @@ instead, and it would become a fifth entity.
 ## Built so far
 
 - Login: Flask-Login + `werkzeug` password hashing, three demo users seeded on first run.
-- Catalogue: card grid, one photo/name/category/description/price per product.
+- Catalogue: card grid, one photo/name/description/price per product, grouped into
+  sections by category (17 categories across the real catalogue) — built with
+  `itertools.groupby` in `app.py` over `get_products()`'s already-`category`-sorted rows,
+  not a template-level grouping filter.
+- **Category filter tabs**: `GET /?category=<name>` (via `db.get_products(category=...)`)
+  filters to one category server-side; the "All" tab is just `GET /` with no param. The
+  tab bar itself always lists every category (`db.get_categories()`), independent of
+  which one is currently selected, so switching categories is a normal link, not JS.
 - "Add to order": one click places a one-item order immediately, saved as one `orders` row
   plus one `order_items` row.
 - "My Orders": a logged-in user's own past orders, with items and totals, read straight

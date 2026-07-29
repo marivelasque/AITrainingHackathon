@@ -1,5 +1,7 @@
 """Entry point. Run this file to start the buyer's furniture shop app."""
 
+import itertools
+
 from flask import Flask, flash, redirect, render_template, request, url_for
 from flask_login import (
     LoginManager,
@@ -38,8 +40,21 @@ def inject_budget_status():
 @app.route("/")
 @login_required
 def home():
-    products = db.get_products()
-    return render_template("catalogue.html", products=products)
+    selected_category = request.args.get("category") or None
+    products = db.get_products(category=selected_category)  # already ordered by category, then name
+    grouped = [
+        {"category": category, "products": list(items)}
+        for category, items in itertools.groupby(products, key=lambda p: p["category"])
+    ]
+    categories = db.get_categories()
+    return render_template(
+        "catalogue.html",
+        grouped=grouped,
+        total=len(products),
+        total_all=sum(c["n"] for c in categories),
+        categories=categories,
+        selected_category=selected_category,
+    )
 
 
 @app.route("/login", methods=["GET", "POST"])

@@ -100,10 +100,26 @@ def replace_products(products):
     conn.close()
 
 
-def get_products():
-    """All products in the catalogue."""
+def get_products(category=None):
+    """Products in the catalogue, optionally filtered to a single category."""
     conn = get_shop_conn()
-    rows = conn.execute("SELECT * FROM products ORDER BY category, name").fetchall()
+    if category:
+        rows = conn.execute(
+            "SELECT * FROM products WHERE category = ? ORDER BY category, name",
+            (category,),
+        ).fetchall()
+    else:
+        rows = conn.execute("SELECT * FROM products ORDER BY category, name").fetchall()
+    conn.close()
+    return rows
+
+
+def get_categories():
+    """Distinct categories with product counts, for the catalogue filter nav."""
+    conn = get_shop_conn()
+    rows = conn.execute(
+        "SELECT category, COUNT(*) AS n FROM products GROUP BY category ORDER BY category"
+    ).fetchall()
     conn.close()
     return rows
 

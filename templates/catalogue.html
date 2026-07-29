@@ -2,30 +2,46 @@
 {% block title %}Catalogue — Furniture Shop{% endblock %}
 {% block content %}
   <h1 class="page-title">Catalogue</h1>
-  <p class="page-subtitle">{{ products|length }} products.</p>
+  <p class="page-subtitle">{{ total }} products.</p>
 
-  <div class="product-grid">
-    {% for product in products %}
-      <article class="product-card">
-        {% set photo = product['image_path'] %}
-        <img class="product-photo"
-             src="{{ photo if photo.startswith('http') else url_for('static', filename=photo) }}"
-             alt="{{ product['name'] }}">
-        <div class="product-body">
-          <span class="product-category">{{ product['category'] }}</span>
-          <h2 class="product-name">{{ product['name'] }}</h2>
-          <p class="product-description">{{ product['description'] }}</p>
-          {% if product['product_url'] %}
-            <a class="product-link" href="{{ product['product_url'] }}" target="_blank" rel="noopener">View original ↗</a>
-          {% endif %}
-          <div class="product-footer">
-            <span class="product-price">${{ "%.2f"|format(product['price']) }}</span>
-            <form method="post" action="{{ url_for('buy', product_id=product['id']) }}">
-              <button type="submit">Add to order</button>
-            </form>
-          </div>
-        </div>
-      </article>
+  <nav class="category-nav">
+    <a href="{{ url_for('home') }}" class="{{ 'active' if not selected_category else '' }}">All ({{ total_all }})</a>
+    {% for cat in categories %}
+      <a href="{{ url_for('home', category=cat['category']) }}"
+         class="{{ 'active' if selected_category == cat['category'] else '' }}">
+        {{ cat['category'] }} ({{ cat['n'] }})
+      </a>
     {% endfor %}
-  </div>
+  </nav>
+
+  {% for group in grouped %}
+    <section class="category-section">
+      <h2 class="category-heading">
+        {{ group.category }} <span class="category-count">({{ group.products|length }})</span>
+      </h2>
+      <div class="product-grid">
+        {% for product in group.products %}
+          <article class="product-card">
+            {% set photo = product['image_path'] %}
+            <img class="product-photo"
+                 src="{{ photo if photo.startswith('http') else url_for('static', filename=photo) }}"
+                 alt="{{ product['name'] }}">
+            <div class="product-body">
+              <h3 class="product-name">{{ product['name'] }}</h3>
+              <p class="product-description">{{ product['description'] }}</p>
+              {% if product['product_url'] %}
+                <a class="product-link" href="{{ product['product_url'] }}" target="_blank" rel="noopener">View original ↗</a>
+              {% endif %}
+              <div class="product-footer">
+                <span class="product-price">${{ "%.2f"|format(product['price']) }}</span>
+                <form method="post" action="{{ url_for('buy', product_id=product['id']) }}">
+                  <button type="submit">Add to order</button>
+                </form>
+              </div>
+            </div>
+          </article>
+        {% endfor %}
+      </div>
+    </section>
+  {% endfor %}
 {% endblock %}
