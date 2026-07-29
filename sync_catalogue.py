@@ -1,8 +1,10 @@
-"""One-off sync: load the shared MongoDB furniture catalogue into our own database,
-replacing whatever is currently in the `products` table (placeholders or a previous sync).
+"""One-off sync: decode product photos from the shared, read-only MongoDB furniture
+catalogue into local files under `static/images/`, keyed by `item_id`.
 
-Read-only against MongoDB — this never writes back to it. Run it again any time to
-refresh the local catalogue from the source.
+Product name/category/price come live from the real event API instead (see
+`furniture_api.get_catalogue()`) — this script only supplies photos, since that API's
+`search-index` endpoint never returns them. Uses the shared `MONGODB_URI` credential — not
+the personal `FURNITURE_API_KEY`, which is unrelated and stays scoped to balance/orders.
 
 Usage: python sync_catalogue.py
 """
@@ -22,6 +24,23 @@ load_dotenv()
 
 STATIC_IMAGES_DIR = Path(__file__).parent / "static" / "images"
 MIME_EXTENSIONS = {"image/jpeg": "jpg", "image/png": "png"}
+
+
+def get_client():
+    """A MongoClient for the shared catalog cluster, or None if MONGODB_URI isn't set.
+
+    read_preference is set explicitly to SECONDARY_PREFERRED because this shared cluster
+    currently has no primary (secondaries only) — the default (primary) read fails with
+    ServerSelectionTimeoutError even though the secondaries are reachable.
+    """
+    mongo_uri = os.environ.get("MONGODB_URI")
+    if not mongo_uri:
+        return None
+    return MongoClient(
+        mongo_uri,
+        read_preference=ReadPreference.SECONDARY_PREFERRED,
+        serverSelectionTimeoutMS=8000,
+    )
 
 
 def safe_filename(item_id):
@@ -58,19 +77,10 @@ def save_image(doc):
 
 
 def main():
-    mongo_uri = os.environ.get("MONGODB_URI")
-    if not mongo_uri:
-        raise SystemExit("Set MONGODB_URI in .env before running this script (see .env.example).")
-
     print("Connecting to MongoDB...")
-    # This shared cluster currently has no primary (secondaries only) — read_preference
-    # must say so explicitly, or the default (primary) read fails with
-    # ServerSelectionTimeoutError even though the secondaries are reachable.
-    client = MongoClient(
-        mongo_uri,
-        read_preference=ReadPreference.SECONDARY_PREFERRED,
-        serverSelectionTimeoutMS=8000,
-    )
+    client = get_client()
+    if client is None:
+        raise SystemExit("Set MONGODB_URI in .env before running this script (see .env.example).")
     catalog = client.get_default_database()["catalog"]
     documents = list(catalog.find())
     print(f"Fetched {len(documents)} products from the `catalog` collection.")

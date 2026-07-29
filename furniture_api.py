@@ -1,7 +1,9 @@
-"""Client for the event's real furniture-shop API (balance, orders) — see requirements.md.
+"""Client for the event's real furniture-shop API (catalogue, balance, orders) — see
+requirements.md.
 
-Separate from sync_catalogue.py, which reads the shared read-only MongoDB catalogue
-instead. This module talks to the actual per-participant REST API.
+Photos aren't served from here — `search-index` (used below) never returns them, so
+`sync_catalogue.py` decodes them separately from the shared, read-only MongoDB `catalog`
+collection, matched back onto these products by `item_id`.
 """
 
 import os
