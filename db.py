@@ -132,13 +132,37 @@ def get_product(product_id):
     return row
 
 
-def place_order(username, product_id, quantity=1):
-    """Record a one-line order. Returns the new order id, or None if the product is unknown."""
+def can_afford(budget, spent, order_total):
+    """Would this order fit within the user's remaining budget?
+
+    Pure function (no database, no Flask) so it's simple to unit test.
+    """
+    return (spent + order_total) <= (budget + 1e-9)
+
+
+def place_order(username, product_id, budget, quantity=1):
+    """Attempt to place a one-line order.
+
+    Returns a dict with `success` (bool) and `message` (str), so the caller can show it
+    straight to the user.
+    """
     product = get_product(product_id)
     if product is None:
-        return None
+        return {"success": False, "message": "That product no longer exists."}
 
     order_total = product["price"] * quantity
+    spent = get_spent(username)
+
+    if not can_afford(budget, spent, order_total):
+        remaining = budget - spent
+        return {
+            "success": False,
+            "message": (
+                f"That order is ${order_total:.2f} but you only have "
+                f"${remaining:.2f} left in your budget."
+            ),
+        }
+
     conn = get_shop_conn()
     with conn:
         cursor = conn.execute(
@@ -152,7 +176,11 @@ def place_order(username, product_id, quantity=1):
             (order_id, product_id, quantity, product["price"], order_total),
         )
     conn.close()
-    return order_id
+
+    return {
+        "success": True,
+        "message": f"Order placed: {quantity} x {product['name']} (${order_total:.2f}).",
+    }
 
 
 def get_spent(username):

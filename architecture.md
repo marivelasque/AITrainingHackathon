@@ -158,19 +158,28 @@ instead, and it would become a fifth entity.
 - **Remaining-budget display**: a Flask `context_processor` computes `spent` (sum of a
   user's past `order_total`s) on every request and exposes `remaining_budget` to every
   template, so the nav pill decreases immediately after each order without each route
-  needing to compute it. Turns red if it goes negative.
+  needing to compute it. Turns red if it goes negative (kept as a defensive display state —
+  see budget enforcement, below, for why it shouldn't normally be reachable now).
+- **Budget enforcement**: `can_afford(budget, spent, order_total)` in `db.py` — a direct
+  port of the R version's function, same signature and boundary rule
+  (`spent + order_total <= budget`, with a small epsilon for float rounding).
+  `place_order()` now takes `budget`, checks affordability before writing anything, and
+  returns `{"success": bool, "message": str}` instead of a bare order id, so `/buy` can
+  flash the exact reason back to the buyer (e.g. "That order is $2672.00 but you only have
+  $278.00 left in your budget."). A blocked order writes nothing to `orders`/`order_items`.
+- **Tests**: `tests/test_budget.py`, `pytest`. Same cases as the original R `testthat`
+  suite: `can_afford` at the exact boundary and just over it; `place_order` succeeds and
+  updates spend; over-budget is refused and not recorded; unknown product is rejected.
+  Skipped the R suite's invalid-quantity case — there's no quantity input in this UI yet
+  (`buy()` always passes `quantity=1`), so it's not a reachable path to test.
 
 ## Still ahead
 
-- **Budget enforcement** — remaining budget is now tracked and displayed (see Built so
-  far), and turns red once negative, but nothing yet blocks the order that pushes it there.
-  Needs a `can_afford()` equivalent (see the R version's, still in git history) evaluated
-  before `place_order()` commits.
 - **Multi-select cart** — a session cart, a review/checkout page, and a `place_cart_order()`
   that writes one `orders` row plus several `order_items` rows in a single transaction.
-  Today's "Add to order" is instant and single-item; there's no cart to review first.
-- **Tests** — none yet. Add a `pytest` suite once budget enforcement exists (see
-  `CLAUDE.md`).
+  Today's "Add to order" is instant and single-item; there's no cart to review first. Once
+  a quantity selector exists, `place_order`/`can_afford` will need an invalid-quantity check
+  and test, matching the R version's.
 
 ## Risks / things to know
 

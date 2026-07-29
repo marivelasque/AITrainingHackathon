@@ -37,6 +37,11 @@ def inject_budget_status():
     return {"spent": spent, "remaining_budget": current_user.budget - spent}
 
 
+@app.route("/health")
+def health():
+    return "ok", 200
+
+
 @app.route("/")
 @login_required
 def home():
@@ -79,11 +84,8 @@ def logout():
 @app.route("/buy/<int:product_id>", methods=["POST"])
 @login_required
 def buy(product_id):
-    order_id = db.place_order(current_user.id, product_id, quantity=1)
-    if order_id is None:
-        flash("That product no longer exists.")
-    else:
-        flash("Order placed.")
+    result = db.place_order(current_user.id, product_id, current_user.budget, quantity=1)
+    flash(result["message"])
     return redirect(url_for("home"))
 
 

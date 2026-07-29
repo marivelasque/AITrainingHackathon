@@ -10,8 +10,8 @@ Day 1 build for a hackathon. A buyer-facing web app for a furniture shop.
 - User browses a product catalogue (762 real IKEA furniture products, synced from a shared
   training MongoDB instance: name, price, photo, description).
 - User places orders, saved against their account. Remaining budget is tracked and shown
-  live (decreases with each order, turns red if negative) but not yet enforced — nothing
-  blocks an order that pushes it below zero. See Tests, below.
+  live (decreases with each order), and enforced: an order that would exceed it is blocked
+  with a clear message and never recorded. See Tests, below.
 
 Originally built in R + Shiny; rebuilt in Python partway through Day 1 for a sleeker,
 photo-led catalogue design that Shiny's component model fought against. See
@@ -50,6 +50,8 @@ static/
 data/
 ├── flask_shop.sqlite         # products + orders (gitignored, regenerated on first run)
 └── flask_credentials.sqlite  # login credentials (gitignored, regenerated on first run)
+tests/
+└── test_budget.py            # can_afford() / place_order() — pytest
 requirements.md               # what the app needs to do
 architecture.md               # how it's built, including the Customer/Product/Order/OrderItem data model
 ```
@@ -87,13 +89,16 @@ writes to the local SQLite database.
 
 ## Tests
 
-None yet. The R version had a full `testthat` suite for the budget-limit logic
-(`can_afford()`/`place_order()`); that logic hasn't been ported because budget enforcement
-itself isn't wired up in the Flask version yet (see Verified working, below). Add a
-`pytest` suite alongside whichever function replaces the current one-line `place_order()`
-once that lands — same cases as the R suite: affordable orders succeed, over-budget orders
-are blocked and not recorded, the exact-remaining-budget boundary case succeeds, unknown
-product and invalid quantity are rejected.
+```powershell
+python -m pytest tests/ -v
+```
+
+`tests/test_budget.py` covers the budget-limit logic (`can_afford()`/`place_order()`) —
+ported from the R version's `testthat` suite: affordable orders succeed and update spend,
+over-budget orders are blocked and not recorded, the exact-remaining-budget boundary case
+succeeds, unknown product is rejected. 6/6 passing. Not ported: the R suite's
+invalid-quantity case — there's no quantity input in this UI yet (`buy()` always passes
+`quantity=1`), so add it once a quantity selector exists.
 
 ## Verified working (2026-07-29)
 
@@ -102,16 +107,19 @@ correct item and total, driven headlessly via Playwright against a live `python 
 instance. Zero console errors, zero broken images. Checked with both the 12 placeholder
 products and, after running `sync_catalogue.py`, the real 762-product MongoDB catalogue
 (all photos load; verified via `naturalWidth` on every `<img>`, not just absence of
-console errors). Remaining budget decreases by the exact order total after each purchase
-(checked: $2784.00 → $2706.00 after a $78.00 order). Not yet enforced — an order can
-currently be placed for more than the budget allows.
+console errors). Remaining budget decreases by the exact order total after each purchase.
+Enforcement checked end-to-end: bought a $2722.00 item against bob's $3000 budget (left
+$278.00), then attempted a $2672.00 item — blocked with "That order is $2672.00 but you
+only have $278.00 left in your budget," remaining budget unchanged, nothing written to
+`orders`/`order_items`.
 
 ## Reproducibility note
 
 Built and tested against Python 3.13.12. Package versions in `requirements.txt`: Flask
 3.1.3, Flask-Login 0.6.3, pymongo 4.17.0, python-dotenv 1.2.2 (Werkzeug, Jinja2, and
-dnspython come along as dependencies of those). Installed into a project-local `.venv`
-(gitignored), not the system/conda Python:
+dnspython come along as dependencies of those). `pytest` 9.1.1 is a test-only dependency,
+not in `requirements.txt` (install separately: `pip install pytest`). Installed into a
+project-local `.venv` (gitignored), not the system/conda Python:
 
 ```powershell
 python -m venv .venv

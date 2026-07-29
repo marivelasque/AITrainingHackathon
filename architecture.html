@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.9.38">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>architecture</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+</style>
+
+
+<script src="architecture_files/libs/clipboard/clipboard.min.js"></script>
+<script src="architecture_files/libs/quarto-html/quarto.js" type="module"></script>
+<script src="architecture_files/libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="architecture_files/libs/quarto-html/popper.min.js"></script>
+<script src="architecture_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="architecture_files/libs/quarto-html/anchor.min.js"></script>
+<link href="architecture_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="architecture_files/libs/quarto-html/quarto-syntax-highlighting-15634bcf2e68342d4ad2dfa704d543f6.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="architecture_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="architecture_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="architecture_files/libs/bootstrap/bootstrap-efbb37e9afcc02144ebbc7afd12a776f.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+
+
+</head>
+
+<body class="fullcontent quarto-light">
+
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
+
+<main class="content" id="quarto-document-content">
+
+
+
+
+<section id="architecture-furniture-shop-buyer-app" class="level1">
+<h1>Architecture — Furniture Shop Buyer App</h1>
+<p>How the app is built, and what’s still ahead to reach the full sleek, photo-led catalogue and cart described in <code>requirements.md</code>.</p>
+<section id="previous-version-r-shiny-removed" class="level2">
+<h2 class="anchored" data-anchor-id="previous-version-r-shiny-removed">Previous version (R + Shiny, removed)</h2>
+<p>Day 1 started as an R + Shiny app: one language for UI and logic, SQLite via <code>DBI</code>/ <code>RSQLite</code>, <code>shinymanager</code> for login. It was a complete, tested app — login, single-product ordering, budget enforcement, order history — but was replaced partway through Day 1: a real photo card grid, hover states, and a snappy multi-select cart meant writing raw HTML/CSS against Shiny’s reactive component model rather than with it. See <code>requirements.md</code> for the full reasoning.</p>
+<p>The R version has been removed from the working tree. It’s recoverable from git history (<code>git log</code>, then <code>git checkout &lt;commit&gt; -- app.R R/ tests/</code>) if ever needed for reference — its budget-enforcement logic (<code>can_afford()</code>) in particular is a direct model for the Python equivalent described below, once that’s built.</p>
+</section>
+<section id="stack" class="level2">
+<h2 class="anchored" data-anchor-id="stack">Stack</h2>
+<ul>
+<li><strong>Flask</strong> — Python micro web framework: routes, request handling, sessions.</li>
+<li><strong>Jinja2</strong> (bundled with Flask) — server-rendered HTML templates.</li>
+<li><strong>SQLite</strong>, via Python’s built-in <code>sqlite3</code> — file-based database, no server to install or run.</li>
+<li><strong>Flask-Login</strong> + <code>werkzeug.security</code> (bundled with Flask) — session-based login and password hashing. The shop-data/credentials database split carries over from the original design.</li>
+<li>Hand-written CSS (<code>static/style.css</code>) for the card grid and overall look — no CSS/JS framework.</li>
+<li><strong>pymongo</strong> + <strong>python-dotenv</strong> — used only by <code>sync_catalogue.py</code>, a one-off/on-demand script that loads the shared training MongoDB catalogue into SQLite. The running Flask app never talks to MongoDB directly; it only ever reads the local SQLite <code>products</code> table, so the app doesn’t depend on that external database being reachable.</li>
+</ul>
+</section>
+<section id="file-structure" class="level2">
+<h2 class="anchored" data-anchor-id="file-structure">File structure</h2>
+<pre class="text"><code>app.py                       # entry point — Flask app, routes
+db.py                        # SQLite access: products, orders, order_items
+auth.py                      # Flask-Login setup, password hashing, demo user accounts
+sync_catalogue.py            # one-off: load the MongoDB catalogue into SQLite, replacing placeholders
+.env                          # MONGODB_URI (gitignored; see .env.example for the shape)
+templates/
+├── base.html                 # shared layout: nav, flash messages
+├── login.html
+├── catalogue.html            # home page — product card grid
+└── orders.html               # "My Orders" page
+static/
+├── style.css                 # card grid, hover states, colour palette
+└── images/                   # product photos decoded by sync_catalogue.py (gitignored)
+data/
+├── flask_shop.sqlite         # products + orders (gitignored, regenerated on first run)
+└── flask_credentials.sqlite  # login credentials (gitignored, regenerated on first run)</code></pre>
+<p>One file per responsibility, same shape the R version used.</p>
+</section>
+<section id="data-model" class="level2">
+<h2 class="anchored" data-anchor-id="data-model">Data model</h2>
+<pre class="mermaid"><code>classDiagram
+    class Customer {
+        String username
+        Number budget
+    }
+
+    class Product {
+        Number id
+        String itemId
+        String name
+        String category
+        Number price
+        String description
+        String imagePath
+        String productUrl
+    }
+
+    class Order {
+        Number id
+        String username
+        DateTime orderedAt
+        Number orderTotal
+    }
+
+    class OrderItem {
+        Number id
+        Number quantity
+        Number unitPrice
+        Number lineTotal
+    }
+
+    Customer "1" --&gt; "0..*" Order : places
+    Order "1" *-- "1..*" OrderItem : contains
+    OrderItem "0..*" --&gt; "1" Product : refers to</code></pre>
+<p>Four things the app needs to remember, in plain English:</p>
+<ul>
+<li><strong>Customer</strong> — a logged-in buyer: their username and their budget ceiling. Their password isn’t shown here — that’s handled by Flask-Login and a separate credentials database.</li>
+<li><strong>Product</strong> — one catalogue item: name, category, price, description, and a photo. The <code>itemId</code> and <code>productUrl</code> fields are the source catalogue’s own product code and a link back to its original listing — carried through as-is rather than invented.</li>
+<li><strong>Order</strong> — one submitted “shopping trip”: who placed it, when, and its total.</li>
+<li><strong>OrderItem</strong> — one product within an order, and how many of it — e.g.&nbsp;“2 × Lund Dining Chair” on a particular order. One Order can have several OrderItems, each pointing at a different Product — this is what makes multi-product orders possible once they’re built (see Still ahead, below; today each order only ever has one OrderItem).</li>
+</ul>
+<p>How they connect:</p>
+<ul>
+<li>A <strong>Customer places</strong> any number of <strong>Orders</strong> over time — that’s their order history.</li>
+<li>An <strong>Order contains</strong> one or more <strong>OrderItems</strong>. An order can’t be empty, and an item can’t exist without its order (shown as the filled diamond).</li>
+<li>Each <strong>OrderItem refers to</strong> exactly one <strong>Product</strong>, but keeps its own <code>quantity</code> and <code>unitPrice</code> rather than looking the price up fresh each time — so a later catalogue price change can’t silently rewrite the value of a past order.</li>
+</ul>
+<p><strong>Deliberately not modelled: a cart.</strong> Nothing today holds an in-progress, multi-item selection — “Add to order” places a complete one-item Order immediately. A real cart would live in the Flask session (a signed cookie holding <code>{product_id: quantity}</code>) until submitted, at which point it becomes an Order plus its OrderItems, same as today. If it’s later decided carts should survive a logout, the cart would need to persist server-side instead, and it would become a fifth entity.</p>
+</section>
+<section id="built-so-far" class="level2">
+<h2 class="anchored" data-anchor-id="built-so-far">Built so far</h2>
+<ul>
+<li>Login: Flask-Login + <code>werkzeug</code> password hashing, three demo users seeded on first run.</li>
+<li>Catalogue: card grid, one photo/name/description/price per product, grouped into sections by category (17 categories across the real catalogue) — built with <code>itertools.groupby</code> in <code>app.py</code> over <code>get_products()</code>’s already-<code>category</code>-sorted rows, not a template-level grouping filter.</li>
+<li><strong>Category filter tabs</strong>: <code>GET /?category=&lt;name&gt;</code> (via <code>db.get_products(category=...)</code>) filters to one category server-side; the “All” tab is just <code>GET /</code> with no param. The tab bar itself always lists every category (<code>db.get_categories()</code>), independent of which one is currently selected, so switching categories is a normal link, not JS.</li>
+<li>“Add to order”: one click places a one-item order immediately, saved as one <code>orders</code> row plus one <code>order_items</code> row.</li>
+<li>“My Orders”: a logged-in user’s own past orders, with items and totals, read straight from the database.</li>
+<li>Two-database separation (shop data vs.&nbsp;credentials), matching the original design.</li>
+<li><strong>Real catalogue</strong>: <code>sync_catalogue.py</code> connects to the shared training MongoDB instance (<code>MONGODB_URI</code> in <code>.env</code>, read-only, never written to), pulls its <code>catalog</code> collection — 762 real IKEA products — and replaces whatever’s in the local <code>products</code> table. Two things the source data needed massaging for:
+<ul>
+<li><code>image_url</code> is a misleading field name — it’s actually the image’s raw bytes, base64-encoded, not a URL. The sync script decodes each one to a real file under <code>static/images/</code> and stores that file’s path, rather than stuffing ~47MB of base64 text into SQLite (which would bloat the database and slow down every catalogue query).</li>
+<li>There’s no free-text description field in the source data, so <code>description</code> is synthesised from the fields that do exist (category, colour, dimensions) rather than invented.</li>
+<li>Re-running the script wipes and reloads <code>products</code> from scratch, which orphans any existing <code>order_items</code> that reference a deleted product (its <code>JOIN</code> in <code>get_orders()</code> then silently drops that line from history). Not yet fixed — re-sync sparingly once real orders exist.</li>
+</ul></li>
+<li><strong>Remaining-budget display</strong>: a Flask <code>context_processor</code> computes <code>spent</code> (sum of a user’s past <code>order_total</code>s) on every request and exposes <code>remaining_budget</code> to every template, so the nav pill decreases immediately after each order without each route needing to compute it. Turns red if it goes negative (kept as a defensive display state — see budget enforcement, below, for why it shouldn’t normally be reachable now).</li>
+<li><strong>Budget enforcement</strong>: <code>can_afford(budget, spent, order_total)</code> in <code>db.py</code> — a direct port of the R version’s function, same signature and boundary rule (<code>spent + order_total &lt;= budget</code>, with a small epsilon for float rounding). <code>place_order()</code> now takes <code>budget</code>, checks affordability before writing anything, and returns <code>{"success": bool, "message": str}</code> instead of a bare order id, so <code>/buy</code> can flash the exact reason back to the buyer (e.g.&nbsp;“That order is $2672.00 but you only have $278.00 left in your budget.”). A blocked order writes nothing to <code>orders</code>/<code>order_items</code>.</li>
+<li><strong>Tests</strong>: <code>tests/test_budget.py</code>, <code>pytest</code>. Same cases as the original R <code>testthat</code> suite: <code>can_afford</code> at the exact boundary and just over it; <code>place_order</code> succeeds and updates spend; over-budget is refused and not recorded; unknown product is rejected. Skipped the R suite’s invalid-quantity case — there’s no quantity input in this UI yet (<code>buy()</code> always passes <code>quantity=1</code>), so it’s not a reachable path to test.</li>
+</ul>
+</section>
+<section id="still-ahead" class="level2">
+<h2 class="anchored" data-anchor-id="still-ahead">Still ahead</h2>
+<ul>
+<li><strong>Multi-select cart</strong> — a session cart, a review/checkout page, and a <code>place_cart_order()</code> that writes one <code>orders</code> row plus several <code>order_items</code> rows in a single transaction. Today’s “Add to order” is instant and single-item; there’s no cart to review first. Once a quantity selector exists, <code>place_order</code>/<code>can_afford</code> will need an invalid-quantity check and test, matching the R version’s.</li>
+</ul>
+</section>
+<section id="risks-things-to-know" class="level2">
+<h2 class="anchored" data-anchor-id="risks-things-to-know">Risks / things to know</h2>
+<ul>
+<li>Multi-image or zoom galleries are explicitly out of scope in <code>requirements.md</code> — one photo per product keeps the image-sourcing problem manageable.</li>
+<li>Without a JS interactivity layer, every action (add to order, in future: cart changes) is a normal full-page reload — functional, but not as snappy as a single-page app would feel. A small <code>static/cart.js</code> using <code>fetch()</code> would recover that, as an enhancement on top of a working server-rendered flow, once there’s a cart to make snappy.</li>
+</ul>
+</section>
+</section>
+
+</main>
+<!-- /main column -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+</body></html>
