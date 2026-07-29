@@ -19,6 +19,7 @@
           </span>
         {% endif %}
         <a href="{{ url_for('home') }}">Catalogue</a>
+        <a href="{{ url_for('ask') }}">Ask</a>
         <a href="{{ url_for('orders') }}">My Orders</a>
         <span class="user">{{ current_user.id }}</span>
         <a href="{{ url_for('logout') }}">Log out</a>

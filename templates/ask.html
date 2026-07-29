@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Ask — Furniture Shop{% endblock %}
+{% block content %}
+  <h1 class="page-title">Ask</h1>
+  <p class="page-subtitle">Ask for what you're after, in your own words.</p>
+
+  <div class="chat-transcript">
+    {% for message in history %}
+      {% if message.role == "user" %}
+        <div class="chat-bubble chat-user">{{ message.content }}</div>
+      {% elif message.role == "assistant" and message.content %}
+        <div class="chat-bubble chat-assistant">{{ message.content }}</div>
+      {% endif %}
+    {% endfor %}
+  </div>
+
+  <form method="post" class="chat-form">
+    <input type="text" name="message" placeholder="e.g. Can I get a cheap mustard chair?" required autofocus>
+    <button type="submit">Send</button>
+  </form>
+{% endblock %}
