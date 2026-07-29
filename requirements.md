@@ -53,7 +53,8 @@ live in `auth.py` (`DEMO_USERS`) — replace before using this with anything rea
 
 ### Product photography
 - One photo per product, consistent size and aspect ratio across all cards.
-- No photos exist in the project yet — see Open questions.
+- Resolved: real photos come from the shared MongoDB furniture catalogue (762 IKEA
+  products), synced into our own database — see `architecture.md`.
 
 ### Platform
 - Moves to Python (Flask + Jinja2 templates), replacing the original build's R + Shiny
@@ -74,10 +75,8 @@ live in `auth.py` (`DEMO_USERS`) — replace before using this with anything rea
 
 ## Open questions
 
-Decisions needed before this can be built:
+Decisions still needed:
 
-- **Product photos** — do you have real photos of the furniture, or should placeholder/stock
-  images be used for the demo?
 - **Quantity** — adjustable on the catalogue card itself, or only after the item is in the
   order/cart page?
 - **Cart persistence** — should an in-progress order survive a logout/login, or is it fine

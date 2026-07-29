@@ -2,16 +2,22 @@
 {% block title %}Catalogue — Furniture Shop{% endblock %}
 {% block content %}
   <h1 class="page-title">Catalogue</h1>
-  <p class="page-subtitle">Placeholder products for now — a real catalogue connects in a later step.</p>
+  <p class="page-subtitle">{{ products|length }} products.</p>
 
   <div class="product-grid">
     {% for product in products %}
       <article class="product-card">
-        <img class="product-photo" src="{{ product['image_path'] }}" alt="{{ product['name'] }}">
+        {% set photo = product['image_path'] %}
+        <img class="product-photo"
+             src="{{ photo if photo.startswith('http') else url_for('static', filename=photo) }}"
+             alt="{{ product['name'] }}">
         <div class="product-body">
           <span class="product-category">{{ product['category'] }}</span>
           <h2 class="product-name">{{ product['name'] }}</h2>
           <p class="product-description">{{ product['description'] }}</p>
+          {% if product['product_url'] %}
+            <a class="product-link" href="{{ product['product_url'] }}" target="_blank" rel="noopener">View original ↗</a>
+          {% endif %}
           <div class="product-footer">
             <span class="product-price">${{ "%.2f"|format(product['price']) }}</span>
             <form method="post" action="{{ url_for('buy', product_id=product['id']) }}">

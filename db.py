@@ -42,11 +42,13 @@ def init_shop_db():
         conn.execute("""
             CREATE TABLE IF NOT EXISTS products (
                 id INTEGER PRIMARY KEY,
+                item_id TEXT,
                 name TEXT NOT NULL,
                 category TEXT NOT NULL,
                 price REAL NOT NULL,
                 description TEXT NOT NULL,
-                image_path TEXT NOT NULL
+                image_path TEXT NOT NULL,
+                product_url TEXT
             )
         """)
         conn.execute("""
@@ -78,6 +80,23 @@ def init_shop_db():
                     for name, category, price, description in PLACEHOLDER_PRODUCTS
                 ],
             )
+    conn.close()
+
+
+def replace_products(products):
+    """Wipe the catalogue and load a new one (e.g. from sync_catalogue.py).
+
+    Each item in `products` is a dict with keys: item_id, name, category, price,
+    description, image_path, product_url.
+    """
+    conn = get_shop_conn()
+    with conn:
+        conn.execute("DELETE FROM products")
+        conn.executemany(
+            "INSERT INTO products (item_id, name, category, price, description, image_path, product_url) "
+            "VALUES (:item_id, :name, :category, :price, :description, :image_path, :product_url)",
+            products,
+        )
     conn.close()
 
 

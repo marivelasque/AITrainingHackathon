@@ -134,8 +134,14 @@ main {
 .product-description {
   font-size: 0.9rem;
   color: var(--muted);
-  margin: 0 0 16px;
+  margin: 0 0 8px;
   min-height: 2.7em;
+}
+
+.product-link {
+  display: inline-block;
+  font-size: 0.8rem;
+  margin-bottom: 12px;
 }
 
 .product-footer {

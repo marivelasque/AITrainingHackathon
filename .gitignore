@@ -409,3 +409,5 @@ data/*.sqlite
 
 # Python (Flask app)
 .venv/
+.env
+static/images/

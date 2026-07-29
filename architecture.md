@@ -28,6 +28,10 @@ Python equivalent described below, once that's built.
   original design.
 - Hand-written CSS (`static/style.css`) for the card grid and overall look — no CSS/JS
   framework.
+- **pymongo** + **python-dotenv** — used only by `sync_catalogue.py`, a one-off/on-demand
+  script that loads the shared training MongoDB catalogue into SQLite. The running Flask
+  app never talks to MongoDB directly; it only ever reads the local SQLite `products`
+  table, so the app doesn't depend on that external database being reachable.
 
 ## File structure
 
@@ -35,13 +39,16 @@ Python equivalent described below, once that's built.
 app.py                       # entry point — Flask app, routes
 db.py                        # SQLite access: products, orders, order_items
 auth.py                      # Flask-Login setup, password hashing, demo user accounts
+sync_catalogue.py            # one-off: load the MongoDB catalogue into SQLite, replacing placeholders
+.env                          # MONGODB_URI (gitignored; see .env.example for the shape)
 templates/
 ├── base.html                 # shared layout: nav, flash messages
 ├── login.html
 ├── catalogue.html            # home page — product card grid
 └── orders.html               # "My Orders" page
 static/
-└── style.css                 # card grid, hover states, colour palette
+├── style.css                 # card grid, hover states, colour palette
+└── images/                   # product photos decoded by sync_catalogue.py (gitignored)
 data/
 ├── flask_shop.sqlite         # products + orders (gitignored, regenerated on first run)
 └── flask_credentials.sqlite  # login credentials (gitignored, regenerated on first run)
@@ -60,11 +67,13 @@ classDiagram
 
     class Product {
         Number id
+        String itemId
         String name
         String category
         Number price
         String description
         String imagePath
+        String productUrl
     }
 
     class Order {
@@ -90,7 +99,9 @@ Four things the app needs to remember, in plain English:
 
 - **Customer** — a logged-in buyer: their username and their budget ceiling. Their password
   isn't shown here — that's handled by Flask-Login and a separate credentials database.
-- **Product** — one catalogue item: name, category, price, description, and a photo.
+- **Product** — one catalogue item: name, category, price, description, and a photo. The
+  `itemId` and `productUrl` fields are the source catalogue's own product code and a link
+  back to its original listing — carried through as-is rather than invented.
 - **Order** — one submitted "shopping trip": who placed it, when, and its total.
 - **OrderItem** — one product within an order, and how many of it — e.g. "2 × Lund Dining
   Chair" on a particular order. One Order can have several OrderItems, each pointing at a
@@ -122,6 +133,21 @@ instead, and it would become a fifth entity.
 - "My Orders": a logged-in user's own past orders, with items and totals, read straight
   from the database.
 - Two-database separation (shop data vs. credentials), matching the original design.
+- **Real catalogue**: `sync_catalogue.py` connects to the shared training MongoDB instance
+  (`MONGODB_URI` in `.env`, read-only, never written to), pulls its `catalog` collection —
+  762 real IKEA products — and replaces whatever's in the local `products` table. Two things
+  the source data needed massaging for:
+  - `image_url` is a misleading field name — it's actually the image's raw bytes,
+    base64-encoded, not a URL. The sync script decodes each one to a real file under
+    `static/images/` and stores that file's path, rather than stuffing ~47MB of base64 text
+    into SQLite (which would bloat the database and slow down every catalogue query).
+  - There's no free-text description field in the source data, so `description` is
+    synthesised from the fields that do exist (category, colour, dimensions) rather than
+    invented.
+  - Re-running the script wipes and reloads `products` from scratch — fine today since
+    there are no real orders yet, but a future re-sync would orphan any `order_items` that
+    reference a product it just deleted. Not a problem to solve until there's real order
+    history to protect.
 
 ## Still ahead
 
@@ -130,8 +156,6 @@ instead, and it would become a fifth entity.
 - **Multi-select cart** — a session cart, a review/checkout page, and a `place_cart_order()`
   that writes one `orders` row plus several `order_items` rows in a single transaction.
   Today's "Add to order" is instant and single-item; there's no cart to review first.
-- **Real product photos** — currently placeholder tiles from `placehold.co`; swap for a
-  real catalogue's image URLs or files once one is connected.
 - **Tests** — none yet. Add a `pytest` suite once budget enforcement exists (see
   `CLAUDE.md`).
 
