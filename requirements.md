@@ -65,6 +65,13 @@ live in `auth.py` (`DEMO_USERS`) — replace before using this with anything rea
 ### Scale
 - Hackathon/demo scale: a handful of concurrent buyers. No high-traffic requirement.
 
+### Deployment / accessibility
+- Must be reachable by someone outside the local network, not just `localhost` — resolved
+  via an ngrok tunnel for the hackathon demo (see `architecture.md`). Not a persistent
+  deployment: the public URL only stays live while both the app and the tunnel keep running.
+- Exposes a lightweight, unauthenticated health-check endpoint so a tunnelling or
+  monitoring tool has something to confirm the app is actually up.
+
 ## Out of scope (for now)
 
 - Real payment processing.

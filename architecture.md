@@ -173,6 +173,18 @@ instead, and it would become a fifth entity.
   Skipped the R suite's invalid-quantity case — there's no quantity input in this UI yet
   (`buy()` always passes `quantity=1`), so it's not a reachable path to test.
 
+## Public access (ngrok)
+
+- `GET /health` — a plain, unauthenticated `200 ok`. Exists specifically so a tunnelling
+  or monitoring tool has something reachable to check before anyone trusts the tunnel;
+  not part of the buyer flow itself.
+- The running `python app.py` process is exposed with `ngrok http 5000`. Ngrok is
+  authenticated with a personal authtoken (`ngrok config add-authtoken ...`), stored in
+  ngrok's own config file (`%LOCALAPPDATA%\ngrok\ngrok.yml`) — never in this repo.
+- The resulting `https://*.ngrok-free.dev` URL is not a deployment: it's a tunnel to this
+  one local process. It goes dead the moment either `python app.py` or the `ngrok`
+  process stops, and a fresh run of `ngrok http 5000` gets a new random URL.
+
 ## Still ahead
 
 - **Multi-select cart** — a session cart, a review/checkout page, and a `place_cart_order()`
