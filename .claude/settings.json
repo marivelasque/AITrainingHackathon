@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(& \"C:\\\\Users\\\\vel044\\\\AppData\\\\Local\\\\Programs\\\\R\\\\R-4.6.0\\\\bin\\\\x64\\\\Rscript.exe\" -e \"pkgs <- c\\('shiny','DBI','RSQLite','shinymanager','testthat','bcrypt','digest','shinytest2'\\); ip <- rownames\\(installed.packages\\(\\)\\); data.frame\\(pkg=pkgs, installed=pkgs %in% ip\\)\")",
+      "PowerShell(& \"C:\\\\Users\\\\vel044\\\\AppData\\\\Local\\\\Programs\\\\R\\\\R-4.6.0\\\\bin\\\\x64\\\\Rscript.exe\" -e \"install.packages\\(c\\('shinymanager','bcrypt'\\), repos='https://cloud.r-project.org'\\)\" 2>&1)"
+    ]
+  }
+}

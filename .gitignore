@@ -403,3 +403,6 @@ FodyWeavers.xsd
 
 # Obsidian symlink
 ./Build a Claw
+
+# Furniture shop app: generated at runtime, contains login credentials and orders
+data/*.sqlite
