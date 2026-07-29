@@ -44,7 +44,10 @@ conversationally before this spec):
   login session; clears on logout. This is what makes "buy the first one" (referring back
   to an earlier search) work.
 - New template `templates/ask.html`: chat transcript (user/assistant bubbles) + a text
-  input form. New nav link in `base.html`.
+  input form. New nav link in `base.html`. Styled to match the app's existing look
+  (`static/style.css`'s card/colour language) — distinct user/assistant bubble styling,
+  not a bare unstyled form; this should feel like a real shopping-assistant chat, not a
+  debug console.
 
 ## Azure OpenAI integration
 
